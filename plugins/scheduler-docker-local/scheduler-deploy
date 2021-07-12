@@ -144,16 +144,18 @@ trigger-scheduler-docker-local-scheduler-deploy() {
       }
 
       # run checks first, then post-deploy hooks, which switches proxy traffic
-      trap 'kill_new $cid $PROC_TYPE $CONTAINER_INDEX' INT TERM EXIT
+      trap "kill_new $cid $PROC_TYPE $CONTAINER_INDEX" INT TERM EXIT
       if [[ "$(is_app_proctype_checks_disabled "$APP" "$PROC_TYPE")" == "false" ]]; then
         dokku_log_info1 "Attempting pre-flight checks ($PROC_TYPE.$CONTAINER_INDEX)"
         plugn trigger check-deploy "$APP" "$cid" "$PROC_TYPE" "$port" "$ipaddr"
       fi
       trap - INT TERM EXIT
 
-      # schedule old container for retirement
-      dokku_log_verbose "Scheduling old container shutdown for $PROC_TYPE.$CONTAINER_INDEX in $WAIT seconds"
-      plugn trigger scheduler-register-retired "$APP" "$(cat "$DOKKU_CONTAINER_ID_FILE")" "$WAIT"
+      if [[ -f "$DOKKU_CONTAINER_ID_FILE" ]]; then
+        # schedule old container for retirement
+        dokku_log_verbose "Scheduling old container shutdown for $PROC_TYPE.$CONTAINER_INDEX in $WAIT seconds"
+        plugn trigger scheduler-register-retired "$APP" "$(cat "$DOKKU_CONTAINER_ID_FILE")" "$WAIT"
+      fi
 
       # now using the new container
       [[ -n "$cid" ]] && echo "$cid" >"$DOKKU_CONTAINER_ID_FILE"
